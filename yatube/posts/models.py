@@ -14,12 +14,17 @@ class Group(models.Model):
 
 
 class Post(models.Model):
-    text = models.TextField(blank=False, null=False)
+    text = models.TextField(
+        blank=False,
+        null=False,
+        verbose_name='Текст'
+        )
     pub_date = models.DateTimeField(auto_now_add=True)
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='posts'
+        verbose_name='Автор',
+        related_name='posts',
     )
     group = models.ForeignKey(
         Group,
