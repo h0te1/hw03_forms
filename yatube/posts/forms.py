@@ -7,6 +7,6 @@ class PostForm(forms.ModelForm):
         model = Post
         fields = ('text', 'group')
         help_texts = {
-            'text': ('в этом поле будет текст поста'),
-            'group': ('в этом поле группа, в которой будет выложен пост')
+            'text': ('введите текст'),
+            'group': ('Выберите группу для этого поста')
         }
