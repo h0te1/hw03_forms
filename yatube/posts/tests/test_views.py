@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from datetime import date
 from django.test import Client, TestCase
 from django.urls import reverse
 from posts.models import Post, Group
@@ -14,6 +15,7 @@ class PostTests(TestCase):
         # Создаю группу, текст и автора уже внутри поста
         cls.post = Post.objects.create(
             id=1,
+            pub_date=date(2023, 2, 6),
             author=User.objects.create_user(username='test_user1',
                                             email='test1@gmail.com',),
             text='Тестовая запись 1',
@@ -23,6 +25,7 @@ class PostTests(TestCase):
         # Такой же пост, только с другими значениями
         cls.post = Post.objects.create(
             id=2,
+            pub_date=date(2023, 2, 7),
             author=User.objects.create_user(username='test_user2',
                                             email='test2@gmail.com',),
             text='Тестовая запись 2',
@@ -35,31 +38,46 @@ class PostTests(TestCase):
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
-    # Проверяет шаблоны для всех url адресов
-    def test_pages_uses_correct_template(self):
-        """URL-адрес использует соответствующий шаблон."""
-        templates_pages_names = {
-            reverse('posts:index'): 'posts/index.html',
-            (reverse('posts:group_list', kwargs={'slug': 'test_slug1'})
-             ): 'posts/group_list.html',
-            (reverse('posts:profile', kwargs={'username': 'mobpsycho100'})
-             ): 'posts/profile.html',
-            (reverse('posts:post_detail', kwargs={'post_id': '1'})
-             ): 'posts/post_detail.html',
-            reverse('posts:post_create'): 'posts/create_post.html',
-            (reverse('posts:post_edit', kwargs={'post_id': '1'})
-             ): 'posts/create_post.html',
-        }
-        for reverse_name, template in templates_pages_names.items():
-            with self.subTest(template=template):
-                response = self.authorized_client.get(reverse_name)
-                self.assertTemplateUsed(response, template)
+    # Проверяю каждый шаблон отдельно, т.к. через subTest ничего не работает
+    def test_index_template(self):
+        """Проверяет шаблон index"""
+        response = self.authorized_client.get(reverse('posts:index'))
+        self.assertTemplateUsed(response, 'posts/index.html')
+
+    def test_group_list_template(self):
+        """Проверяет шаблон group_list"""
+        response = self.authorized_client.get(
+            reverse('posts:group_list', kwargs={'slug': 'test_slug1'}))
+        self.assertTemplateUsed(response, 'posts/group_list.html')
+
+    def test_profile_template(self):
+        """Проверяет шаблон profile"""
+        response = self.authorized_client.get(
+            reverse('posts:profile', kwargs={'username': 'test_user1'}))
+        self.assertTemplateUsed(response, 'posts/profile.html')
+
+    def test_post_detail_template(self):
+        """Проверяет шаблон post_detail"""
+        response = self.authorized_client.get(
+            reverse('posts:post_detail', kwargs={'post_id': '1'}))
+        self.assertTemplateUsed(response, 'posts/post_detail.html')
+
+    def test_post_edit_template(self):
+        """Проверяет шаблон post_edit"""
+        response = self.authorized_client.get(
+            reverse('posts:post_edit', kwargs={'post_id': '1'}))
+        self.assertTemplateUsed(response, 'posts/create_post.html')
+
+    def test_post_create_template(self):
+        """Проверяет шаблон post_create"""
+        response = self.authorized_client.get(reverse('posts:post_create'))
+        self.assertTemplateUsed(response, 'posts/create_post.html')
 
     # проверяет контекст на главной странице
     def test_context_index(self):
         """Контекст в index"""
         response = self.authorized_client.get(reverse('posts:index'))
-        first_object = response.context.get('page')[0]
+        first_object = response.context['page_obj'][0]
         post_text_0 = first_object.text
         post_author_0 = first_object.author.username
         post_group_0 = first_object.group.title
@@ -84,7 +102,7 @@ class PostTests(TestCase):
         """Контекст в profile"""
         response = self.authorized_client.get(
             reverse('posts:profile', kwargs={'username': 'test_user2'}))
-        first_object = response.context["page"][0]
+        first_object = response.context['page_obj'][0]
         post_text_0 = first_object.text
         self.assertEqual(response.context['author'].username, 'test_user2')
         self.assertEqual(post_text_0, 'Тестовая запись 2')
@@ -135,7 +153,7 @@ class PostTests(TestCase):
         """Пост не попал в другую группу"""
         response = self.authorized_client.get(
             reverse('posts:group_list', kwargs={'slug': 'test_slug1'}))
-        first_object = response.context["page"][0]
+        first_object = response.context["page_obj"][0]
         post_text_0 = first_object.text
         self.assertTrue(post_text_0, 'Тестовая запись 2')
 
@@ -167,6 +185,7 @@ class PaginatorViewsTest(TestCase):
 
     # Проверка на десять постов для всех веб-страниц с паджинатором
     def test_first_page_ten_posts(self):
+        """Проверка на десять постов для всех веб-страниц с паджинатором"""
         list_urls = {
             reverse("posts:index"): "index",
             reverse("posts:group_list", kwargs={"slug": "test_slug"}): "group",
@@ -174,10 +193,12 @@ class PaginatorViewsTest(TestCase):
         }
         for tested_url in list_urls.keys():
             response = self.client.get(tested_url)
-            self.assertEqual(len(response.context.get('page').object_list), 10)
+            self.assertEqual(
+                len(response.context.get('page_obj').object_list), 10)
 
     # Проверка на три поста на второй странице паджинатора
     def test_second_page_contains_three_posts(self):
+        """Проверка на три поста на второй странице паджинатора"""
         list_urls = {
             reverse("posts:index") + "?page=2": "index",
             reverse("posts:group_list", kwargs={"slug": "test_slug"}
@@ -187,4 +208,5 @@ class PaginatorViewsTest(TestCase):
         }
         for tested_url in list_urls.keys():
             response = self.client.get(tested_url)
-            self.assertEqual(len(response.context.get('page').object_list), 3)
+            self.assertEqual(
+                len(response.context.get('page_obj').object_list), 3)

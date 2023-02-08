@@ -18,7 +18,7 @@ def paginator(request, posts, limit):
 
 
 def index(request):
-    post_list = Post.objects.all()
+    post_list = Post.objects.all().order_by('-pub_date')
     page_obj = paginator(request, post_list, 10)
     context = {
         'page_obj': page_obj,
@@ -28,7 +28,7 @@ def index(request):
 
 def group_posts(request, slug):
     group = get_object_or_404(Group, slug=slug)
-    post_list = group.posts.select_related('author')[:10]
+    post_list = group.posts.all().order_by('-pub_date')
     page_obj = paginator(request, post_list, 10)
     context = {
         'group': group,
